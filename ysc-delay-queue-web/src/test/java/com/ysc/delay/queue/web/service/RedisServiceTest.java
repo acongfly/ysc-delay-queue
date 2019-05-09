@@ -18,4 +18,8 @@ public class RedisServiceTest {
     public void addRedisHash() {
         redisService.addRedisHash();
     }
+
+    public static void main(String[] args) {
+
+    }
 }
