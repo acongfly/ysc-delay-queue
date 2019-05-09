@@ -6,12 +6,15 @@ import com.ysc.delay.queue.core.service.YscDelayQueue;
 import com.ysc.delay.queue.core.util.RedisUtil;
 import com.ysc.delay.queue.core.vo.DelayQueueDetailInfoVO;
 import com.ysc.delay.queue.core.vo.DelayQueueInfoVO;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
+import java.util.Iterator;
 import java.util.Map;
-import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -21,7 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * @create: 2019-05-05 13:32
  **/
 @Service
-public class YscRedisDelayQueue<T extends StringRedisTemplate> implements YscDelayQueue {
+public class YscRedisDelayQueue implements YscDelayQueue {
 
     private static ConcurrentHashMap<String, Integer> routePutBucket = new ConcurrentHashMap<String, Integer>();
     private static long CACHE_VALID_TIME = 0;
@@ -52,6 +55,11 @@ public class YscRedisDelayQueue<T extends StringRedisTemplate> implements YscDel
     static final String JOB_POOL_PREFIX = "ysc:DQ:jp:";
 
     /**
+     * ready job key 前缀
+     */
+    static final String READY_JOB_PROFIX = "ysc:DQ:rdj:";
+
+    /**
      * 桶数量
      */
     private int bucket;
@@ -64,12 +72,22 @@ public class YscRedisDelayQueue<T extends StringRedisTemplate> implements YscDel
      */
     static final String DEFAULT_BUCKET_VALUE = "default";
 
-    private T redisTemplate;
+    private StringRedisTemplate redisTemplate;
 
     /**
      * 锁超时时间
      */
-    private static final int EXPIRE_TIME = 60000;
+    private static final int EXPIRE_TIME = 1;
+    /**
+     * ack key
+     */
+    private String ackKey;
+
+    /**
+     * 等待时间
+     */
+    private long awaitTime;
+
 
     /**
      * description: 组装延迟队列信息。bucket桶个数需要设置<p>
@@ -78,34 +96,19 @@ public class YscRedisDelayQueue<T extends StringRedisTemplate> implements YscDel
      * author: shicong yang <p>
      * date: 2019-05-05 <p>
      */
-    public YscRedisDelayQueue(String queueName, int bucket, T redisTemplate) {
+    public YscRedisDelayQueue(String queueName, int bucket, StringRedisTemplate redisTemplate) {
         this.queueName = queueName;
         this.bucket = bucket;
         this.redisTemplate = redisTemplate;
-//        createDefaultBucket(queueName, bucket, redisTemplate);
     }
 
 
-    public YscRedisDelayQueue(String queueName, T redisTemplate) {
+    public YscRedisDelayQueue(String queueName, StringRedisTemplate redisTemplate) {
         this.queueName = queueName;
         this.redisTemplate = redisTemplate;
         this.bucket = DEFAULT_BUCKET;
-//        createDefaultBucket(queueName, DEFAULT_BUCKET, redisTemplate);
     }
 
-//    /**
-//     * 创建空的桶
-//     *
-//     * @param queueName
-//     * @param bucket
-//     * @param redisTemplate
-//     */
-//    private void createDefaultBucket(String queueName, int bucket, StringRedisTemplate redisTemplate) {
-//        for (int i = 0; i < bucket; i++) {
-//            String bucketName = BUCKET_NAME_PREFIX + queueName + i;
-//            RedisUtil.zAdd(redisTemplate, bucketName, DEFAULT_BUCKET_VALUE, DEFAULT_SCORE);
-//        }
-//    }
 
     @Override
     public String getQueueName() {
@@ -136,9 +139,6 @@ public class YscRedisDelayQueue<T extends StringRedisTemplate> implements YscDel
 
     @Override
     public boolean push(DelayQueueInfoVO delayQueueInfoVO) throws Exception {
-        String lockParam = queueName + System.currentTimeMillis();
-//        try {
-//            RedisUtil.lock(redisTemplate, LOCK_PREFIX + queueName, lockParam, EXPIRE_TIME);
         //1.将信息放入到jobPool，jobPool选用hash
         DelayQueueDetailInfoVO delayQueueDetailInfoVO = buildDelayQueueDetailInfoVO(delayQueueInfoVO);
         //绝对时间 纳秒
@@ -148,9 +148,6 @@ public class YscRedisDelayQueue<T extends StringRedisTemplate> implements YscDel
         //2.放入到bucket（轮询放入）
         String bucketName = BUCKET_NAME_PREFIX + queueName + count(delayQueueDetailInfoVO.getTopic() + delayQueueDetailInfoVO.getId(), bucket);
         return RedisUtil.zAdd(redisTemplate, bucketName, delayQueueDetailInfoVO.getTopic() + delayQueueDetailInfoVO.getId(), delayNano);
-//        } finally {
-//            RedisUtil.unLock(redisTemplate, LOCK_PREFIX + queueName, lockParam);
-//        }
     }
 
     /**
@@ -169,16 +166,88 @@ public class YscRedisDelayQueue<T extends StringRedisTemplate> implements YscDel
         delayQueueDetailInfoVO.setTimeToRun(delayQueueInfoVO.getTimeToRun().toString());
         delayQueueDetailInfoVO.setStatus(JobStatusEnum.READY.getValue() + "");
         delayQueueDetailInfoVO.setRetryTime(0 + "");
+        if (StringUtils.isNotBlank(delayQueueInfoVO.getCallbackUrl())) {
+            delayQueueDetailInfoVO.setCallbackUrl(delayQueueInfoVO.getCallbackUrl());
+        }
         return delayQueueDetailInfoVO;
     }
 
     @Override
     public DelayQueueDetailInfoVO pop() throws Exception {
-        //
 
+        /**
+         * 1.0遍历bucket
+         */
+        DelayQueueDetailInfoVO delayQueueDetailInfoVO = new DelayQueueDetailInfoVO();
+        String lockParam = queueName + System.currentTimeMillis();
+        //ready job key
+        String readyJobKey = READY_JOB_PROFIX + queueName;
+        try {
+            boolean lock = RedisUtil.lock(redisTemplate, LOCK_PREFIX + queueName, lockParam, EXPIRE_TIME);
+            if (lock) {
+                if (RedisUtil.zSize(redisTemplate, readyJobKey) > 0) {
+                    Set<String> readyJob = RedisUtil.zRange(redisTemplate, readyJobKey, 0, 0);
+                    Iterator<String> readyJobIterator = readyJob.iterator();
+                    while (readyJobIterator.hasNext()) {
+                        String value = readyJobIterator.next();
+                        String key = JOB_POOL_PREFIX + value;
+//                                //从redis bucket中取出对象
+                        /**
+                         * 返回（从ready job queue 中获取）
+                         */
+                        Map<Object, Object> hashValue = RedisUtil.hGetAll(redisTemplate, key);
+                        delayQueueDetailInfoVO = BeanUtil.mapToBeanIgnoreCase(hashValue, DelayQueueDetailInfoVO.class, true);
+                        //TODO ack 去除hash中值
 
-        return null;
+                        if (true) {      //TODO 相关状态判断
+                            //移除ready job 第一个
+                            RedisUtil.zRemoveRange(redisTemplate, readyJobKey, 0, 0);
+                        }
+                        return delayQueueDetailInfoVO;
+                    }
+                } else {
+                    for (; ; ) {
+                        for (int i = 0; i < bucket; i++) {
+                            String bucketName = BUCKET_NAME_PREFIX + queueName + i;
+                            Long aLong = RedisUtil.zSize(redisTemplate, bucketName);
+                            //第一个
+                            Set<ZSetOperations.TypedTuple<String>> typedTuples = RedisUtil.zRangeWithScores(redisTemplate, bucketName, aLong - 1, aLong);
+                            Iterator<ZSetOperations.TypedTuple<String>> iterator = typedTuples.iterator();
+                            while (iterator.hasNext()) {
+                                ZSetOperations.TypedTuple<String> next = iterator.next();
+                                if (next.getScore() <= System.nanoTime()) {
+                                    awaitTime = System.nanoTime() - next.getScore().longValue();
+                                    /**
+                                     * 小于等于当前时间则到了执行对时候，放入到ready job 队列(zset)中，防止后面丢失以及重新部署后不会执行
+                                     */
+                                    //TODO 状态判断
+                                    RedisUtil.zAdd(redisTemplate, readyJobKey, next.getValue(), next.getScore());
+                                    /**
+                                     * 从bucket 移除
+                                     */
+                                    Long removeRange = RedisUtil.zRemoveRange(redisTemplate, bucketName, aLong - 1, aLong);
+                                    System.out.println("===========removeRange=" + removeRange);
+                                } else {
+                                    try {
+                                        Thread.sleep(awaitTime);
+                                    } catch (Exception e) {
+                                        //do nothing
+                                    }
+                                }
+                            }
+
+                        }
+                    }
+                }
+
+            }
+
+            return delayQueueDetailInfoVO;
+        } finally {
+            RedisUtil.unLock(redisTemplate, LOCK_PREFIX + queueName, lockParam);
+        }
     }
+
 
     @Override
     public boolean ack() throws Exception {

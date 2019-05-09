@@ -1,6 +1,5 @@
 package com.ysc.delay.queue.core.vo;
 
-import lombok.Builder;
 import lombok.Data;
 
 /**
@@ -50,4 +49,8 @@ public class DelayQueueDetailInfoVO {
      * 延迟队列执行状态
      */
     private String status;
+    /**
+     * 回调通知
+     */
+    private String callbackUrl;
 }

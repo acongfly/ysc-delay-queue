@@ -90,3 +90,14 @@ ysc-delay-queue-web/target/generated-test-sources/
 ysc-delay-queue-web/target/maven-archiver/
 ysc-delay-queue-web/target/maven-status/
 ysc-delay-queue-web/target/test-classes/META-INF/
+.idea/compiler.xml
+.idea/encodings.xml
+.idea/inspectionProfiles/
+.idea/libraries/
+.idea/misc.xml
+.idea/modules.xml
+.idea/uiDesigner.xml
+.idea/ysc-delay-queue.iml
+ysc-delay-queue-core/ysc-delay-queue-core.iml
+ysc-delay-queue-web/ysc-delay-queue-web.iml
+.idea

@@ -45,4 +45,9 @@ public class DelayQueueInfoVO implements Serializable {
      */
     private String type;
 
+    /**
+     * 回调通知
+     */
+    private String callbackUrl;
+
 }

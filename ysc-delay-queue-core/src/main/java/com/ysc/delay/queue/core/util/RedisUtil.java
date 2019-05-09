@@ -1,6 +1,7 @@
 package com.ysc.delay.queue.core.util;
 
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ZSetOperations.TypedTuple;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 
@@ -46,6 +47,63 @@ public class RedisUtil {
         redisTemplate.opsForHash().putAll(key, maps);
     }
 
+
+    /**
+     * 获取存储在哈希表中指定字段的值
+     *
+     * @param key
+     * @param field
+     * @return
+     */
+    public static Object hGet(RedisTemplate<String, String> redisTemplate, String key, String field) {
+        return redisTemplate.opsForHash().get(key, field);
+    }
+
+    /**
+     * 获取所有给定字段的值
+     *
+     * @param key
+     * @return
+     */
+    public static Map<Object, Object> hGetAll(RedisTemplate<String, String> redisTemplate, String key) {
+        return redisTemplate.opsForHash().entries(key);
+    }
+
+    /**
+     * =========================下面为set操作=============================================
+     */
+
+    /**
+     * set添加元素
+     *
+     * @param key
+     * @param values
+     * @return
+     */
+    public static Long sAdd(RedisTemplate<String, String> redisTemplate, String key, String... values) {
+        return redisTemplate.opsForSet().add(key, values);
+    }
+
+    /**
+     * set移除元素
+     *
+     * @param key
+     * @param values
+     * @return
+     */
+    public static Long sRemove(RedisTemplate<String, String> redisTemplate, String key, Object... values) {
+        return redisTemplate.opsForSet().remove(key, values);
+    }
+
+    /**
+     * 获取集合的大小
+     *
+     * @param key
+     * @return
+     */
+//    public static Long sSize(String key) {
+//        return RedisUtil.stringRedisTemplate.opsForSet().size(key);
+//    }
     /**
      * ======================下面为zset操作===============================================
      */
@@ -105,6 +163,33 @@ public class RedisUtil {
      */
     public static <V> Long zRemoveRange(RedisTemplate<String, V> redisTemplate, String key, long start, long end) {
         return redisTemplate.opsForZSet().removeRange(key, start, end);
+    }
+
+    /**
+     * 获取集合元素, 并且把score值也获取
+     *
+     * @param key
+     * @param start
+     * @param end
+     * @return
+     */
+    public static Set<TypedTuple<String>> zRangeWithScores(RedisTemplate<String, String> redisTemplate, String key, long start,
+                                                           long end) {
+        return redisTemplate.opsForZSet().rangeWithScores(key, start, end);
+    }
+
+    /**
+     * 根据Score值查询集合元素, 从大到小排序
+     *
+     * @param key
+     * @param min
+     * @param max
+     * @return
+     */
+    public static Set<TypedTuple<String>> zReverseRangeByScoreWithScores(RedisTemplate<String, String> redisTemplate,
+                                                                         String key, double min, double max) {
+        return redisTemplate.opsForZSet().reverseRangeByScoreWithScores(key,
+                min, max);
     }
 
     /**
