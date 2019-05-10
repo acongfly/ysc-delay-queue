@@ -5,10 +5,7 @@ import org.springframework.data.redis.core.ZSetOperations.TypedTuple;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 
-import java.util.Collections;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -22,6 +19,49 @@ public class RedisUtil {
 
     private static final Long UNLOCK_MSG = 1L;
 
+
+    /**
+     * ==========================key操作
+     */
+    /**
+     * 删除key
+     *
+     * @param key
+     */
+    public static boolean delete(RedisTemplate<String, String> redisTemplate, String key) {
+        return redisTemplate.delete(key);
+    }
+
+    /**
+     * 批量删除key
+     *
+     * @param keys
+     */
+    public static void delete(RedisTemplate<String, String> redisTemplate, Collection<String> keys) {
+        redisTemplate.delete(keys);
+    }
+
+    /**
+     * 设置过期时间
+     *
+     * @param key
+     * @param timeout
+     * @param unit
+     * @return
+     */
+    public static Boolean expire(RedisTemplate<String, String> redisTemplate, String key, long timeout, TimeUnit unit) {
+        return redisTemplate.expire(key, timeout, unit);
+    }
+
+    /**
+     * 查找匹配的key
+     *
+     * @param pattern
+     * @return
+     */
+    public static Set<String> keys(RedisTemplate<String, String> redisTemplate, String pattern) {
+        return redisTemplate.keys(pattern);
+    }
     /**
      * ===============hash操作======================================================
      */

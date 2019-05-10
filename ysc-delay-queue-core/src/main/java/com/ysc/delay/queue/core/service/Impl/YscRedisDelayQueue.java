@@ -12,10 +12,9 @@ import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -41,6 +40,16 @@ public class YscRedisDelayQueue implements YscDelayQueue {
      * 队列名称
      */
     private String queueName;
+
+    /**
+     * ready queue name
+     */
+    private String readyQueueName;
+
+    /**
+     * job pool key name
+     */
+    private String jobPoolKeyName;
 
     /**
      * 桶名称前缀
@@ -90,12 +99,6 @@ public class YscRedisDelayQueue implements YscDelayQueue {
      * 等待时间
      */
     private long awaitTime;
-
-
-    Lock lock = new ReentrantLock();
-    Condition condition = lock.newCondition();
-    private volatile boolean process = true;
-
 
     /**
      * description: 组装延迟队列信息。bucket桶个数需要设置<p>
@@ -189,13 +192,13 @@ public class YscRedisDelayQueue implements YscDelayQueue {
         DelayQueueDetailInfoVO delayQueueDetailInfoVO = new DelayQueueDetailInfoVO();
         String lockParam = queueName + System.currentTimeMillis();
         //ready job key
-        String readyJobKey = READY_JOB_PROFIX + queueName;
+        readyQueueName = READY_JOB_PROFIX + queueName;
         try {
             boolean lock = RedisUtil.lock(redisTemplate, LOCK_PREFIX + queueName, lockParam, EXPIRE_TIME);
             if (lock) {
                 for (; ; ) {
-                    if (RedisUtil.zSize(redisTemplate, readyJobKey) > 0) {
-                        Set<String> readyJob = RedisUtil.zRange(redisTemplate, readyJobKey, 0, 0);
+                    if (RedisUtil.zSize(redisTemplate, readyQueueName) > 0) {
+                        Set<String> readyJob = RedisUtil.zRange(redisTemplate, readyQueueName, 0, 0);
                         Iterator<String> readyJobIterator = readyJob.iterator();
                         while (readyJobIterator.hasNext()) {
                             String value = readyJobIterator.next();
@@ -207,15 +210,15 @@ public class YscRedisDelayQueue implements YscDelayQueue {
                             Map<Object, Object> hashValue = RedisUtil.hGetAll(redisTemplate, key);
                             delayQueueDetailInfoVO = BeanUtil.mapToBeanIgnoreCase(hashValue, DelayQueueDetailInfoVO.class, true);
                             //TODO ack 去除hash中值
+                            jobPoolKeyName = key;
 
                             if (true) {      //TODO 相关状态判断
                                 //移除ready job 第一个
-                                RedisUtil.zRemoveRange(redisTemplate, readyJobKey, 0, 0);
+                                RedisUtil.zRemoveRange(redisTemplate, readyQueueName, 0, 0);
                             }
                             return delayQueueDetailInfoVO;
                         }
                     } else {
-//                        for (; ; ) {
                         for (int i = 0; i < bucket; i++) {
                             String bucketName = BUCKET_NAME_PREFIX + queueName + i;
                             Long aLong = RedisUtil.zSize(redisTemplate, bucketName);
@@ -230,9 +233,10 @@ public class YscRedisDelayQueue implements YscDelayQueue {
                                      * 小于等于当前时间则到了执行对时候，放入到ready job 队列(zset)中，防止后面丢失以及重新部署后不会执行
                                      */
                                     //TODO 状态判断
-                                    RedisUtil.zAdd(redisTemplate, readyJobKey, next.getValue(), next.getScore());
+                                    RedisUtil.zAdd(redisTemplate, readyQueueName, next.getValue(), next.getScore());
                                     /**
                                      * 从bucket 移除
+                                     * TODO ack判断操作
                                      */
                                     RedisUtil.zRemoveRange(redisTemplate, bucketName, aLong - 1, aLong);
                                 } else {
@@ -244,7 +248,6 @@ public class YscRedisDelayQueue implements YscDelayQueue {
                                 }
                             }
                         }
-//                        }
                     }
                 }
             }
@@ -257,26 +260,53 @@ public class YscRedisDelayQueue implements YscDelayQueue {
 
     @Override
     public boolean ack() throws Exception {
-        return false;
+        RedisUtil.delete(redisTemplate, jobPoolKeyName);
+        return true;
     }
 
     @Override
     public long length() throws Exception {
-        return 0;
+        /**
+         * bucket + readyQueue+tryQueue
+         */
+        long size = 0L;
+        for (int i = 0; i < bucket; i++) {
+            String bucketName = BUCKET_NAME_PREFIX + queueName + i;
+            size = size + RedisUtil.zSize(redisTemplate, bucketName);
+        }
+        size = size + RedisUtil.zSize(redisTemplate, readyQueueName);
+        //TODO + tryQueue
+        return size;
     }
 
     @Override
     public boolean clean() throws Exception {
-        return false;
+
+        /**
+         * 防止死锁，只修改失效时间
+         */
+//        // del ready queue
+//        RedisUtil.zRemoveRange(redisTemplate, readyQueueName, 0, -1);
+//        //del bucket queue
+//        for (int i = 0; i < bucket; i++) {
+//            String bucketName = BUCKET_NAME_PREFIX + queueName + i;
+//            RedisUtil.zRemoveRange(redisTemplate, bucketName, 0, -1);
+//        }
+        RedisUtil.expire(redisTemplate, readyQueueName, 0, TimeUnit.NANOSECONDS);
+        for (int i = 0; i < bucket; i++) {
+            String bucketName = BUCKET_NAME_PREFIX + queueName + i;
+            RedisUtil.expire(redisTemplate, bucketName, 0, TimeUnit.NANOSECONDS);
+        }
+        return true;
     }
 
-    @Override
-    public long getDelay() {
-        return 0;
-    }
-
-    @Override
-    public void setDelay(long delay) {
-
-    }
+//    @Override
+//    public long getDelay() {
+//        return 0;
+//    }
+//
+//    @Override
+//    public void setDelay(long delay) {
+//
+//    }
 }

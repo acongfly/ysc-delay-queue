@@ -76,7 +76,7 @@ public interface YscDelayQueue {
      * author: shicong yang <p>
      * date: 2019-05-05 <p>
      */
-    long getDelay();
+//    long getDelay();
 
     /**
      * description: 重新设置延迟时间<p>
@@ -85,7 +85,7 @@ public interface YscDelayQueue {
      * author: shicong yang <p>
      * date: 2019-05-05 <p>
      */
-    void setDelay(long delay);
+//    void setDelay(long delay);
 
 
 }
