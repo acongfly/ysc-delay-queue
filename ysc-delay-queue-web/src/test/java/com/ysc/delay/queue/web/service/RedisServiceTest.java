@@ -19,7 +19,5 @@ public class RedisServiceTest {
         redisService.addRedisHash();
     }
 
-    public static void main(String[] args) {
 
-    }
 }
