@@ -2,6 +2,7 @@ package com.ysc.delay.queue.web.service;
 
 import com.ysc.delay.queue.core.service.Impl.YscRedisDelayQueue;
 import com.ysc.delay.queue.core.vo.DelayQueueDetailInfoVO;
+import com.ysc.delay.queue.core.vo.DelayQueueInfoVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -46,7 +47,7 @@ public class RedisService {
 
 
 //        try {
-//            for (int i = 0; i < 100000; i++) {
+//            for (int i = 0; i < 100; i++) {
 //                DelayQueueInfoVO delayQueueInfoVO = new DelayQueueInfoVO();
 //                delayQueueInfoVO.setTopic("test");
 //                delayQueueInfoVO.setId(i+"");
@@ -68,7 +69,7 @@ public class RedisService {
                 try {
 
                     long start = System.currentTimeMillis();
-                    for (int j = 0; j < 10000; j++) {
+                    for (int j = 0; j < 100; j++) {
                         DelayQueueDetailInfoVO pop = yscRedisDelayQueue.pop();
                         log.info("thread name {},{},pop={}", Thread.currentThread(), ii, pop);
                         yscRedisDelayQueue.ack();
