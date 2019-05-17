@@ -152,8 +152,8 @@ public class YscRedisDelayQueue implements YscDelayQueue {
     public boolean push(DelayQueueInfoVO delayQueueInfoVO) throws Exception {
         StopWatch stopWatch = new StopWatch();
         stopWatch.start();
-        final ReentrantLock reLock = this.lock;
-        reLock.lock();
+//        final ReentrantLock reLock = this.lock;
+//        reLock.lock();
         try {
             //1.将信息放入到jobPool，jobPool选用hash
             DelayQueueDetailInfoVO delayQueueDetailInfoVO = buildDelayQueueDetailInfoVO(delayQueueInfoVO);
@@ -165,8 +165,8 @@ public class YscRedisDelayQueue implements YscDelayQueue {
             String bucketName = BUCKET_NAME_PREFIX + queueName + count(delayQueueDetailInfoVO.getTopic() + delayQueueDetailInfoVO.getId(), bucket);
             return RedisUtil.zAdd(redisTemplate, bucketName, delayQueueDetailInfoVO.getTopic() + delayQueueDetailInfoVO.getId(), delayNano);
         } finally {
-            available.signal();
-            reLock.unlock();
+//            available.signal();
+//            reLock.unlock();
             stopWatch.stop();
             log.info("Spend time {}ms", stopWatch.getTotalTimeMillis());
 
@@ -200,15 +200,16 @@ public class YscRedisDelayQueue implements YscDelayQueue {
 
         StopWatch stopWatch = new StopWatch();
         stopWatch.start();
+        log.info("pop queue start:Thread =[{}]", Thread.currentThread().getName());
         /**
          * 1.0遍历bucket
          */
         DelayQueueDetailInfoVO delayQueueDetailInfoVO = null;
         //ready job key
         readyQueueName = READY_JOB_PROFIX + queueName;
-        final ReentrantLock reLock = this.lock;
-        reLock.lock();
+//        final ReentrantLock reLock = this.lock;
         try {
+//            reLock.lock();
             for (; ; ) {
                 if (RedisUtil.zSize(redisTemplate, readyQueueName) > 0) {
                     lockParams.set(queueName + System.currentTimeMillis());
@@ -246,8 +247,9 @@ public class YscRedisDelayQueue implements YscDelayQueue {
                         bucketThreadLocal.set(LOCK_PREFIX + bucketName);
                         lockParams.set(bucketName + System.currentTimeMillis());
                         try {
-                            Long bucketElemSize = RedisUtil.zSize(redisTemplate, bucketName);
+//                            Thread.sleep((bucket - bucketElemSize) * 1000);
                             if (RedisUtil.lock(redisTemplate, bucketThreadLocal.get(), lockParams.get(), EXPIRE_TIME)) {
+                                Long bucketElemSize = RedisUtil.zSize(redisTemplate, bucketName);
                                 //第一个
                                 Set<ZSetOperations.TypedTuple<String>> typedTuples = RedisUtil.zRangeWithScores(redisTemplate, bucketName, bucketElemSize - 1, bucketElemSize);
                                 Iterator<ZSetOperations.TypedTuple<String>> iterator = typedTuples.iterator();
@@ -268,8 +270,8 @@ public class YscRedisDelayQueue implements YscDelayQueue {
                                         }
                                     } else {
                                         awaitTime = next.getScore().longValue() - System.nanoTime();
-                                        available.awaitNanos(awaitTime);
-//                                        Thread.sleep(awaitTime);
+//                                        available.awaitNanos(awaitTime);
+                                        Thread.sleep(awaitTime);
                                     }
                                 }
                             }
@@ -286,8 +288,8 @@ public class YscRedisDelayQueue implements YscDelayQueue {
         } catch (Exception e) {
             log.error("ysc-delay-queue exception", e);
         } finally {
-            available.signal();
-            reLock.unlock();
+//            available.signal();
+//            reLock.unlock();
             stopWatch.stop();
             log.info("Spend time {}ms", stopWatch.getTotalTimeMillis());
         }
