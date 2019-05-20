@@ -3,6 +3,7 @@ package com.ysc.delay.queue.web;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.data.redis.repository.configuration.EnableRedisRepositories;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * @program: ysc-delay-queue
@@ -12,6 +13,7 @@ import org.springframework.data.redis.repository.configuration.EnableRedisReposi
  **/
 @SpringBootApplication
 @EnableRedisRepositories
+@EnableScheduling
 public class YscDelayQueueWebApplication {
     public static void main(String[] args) {
         SpringApplication.run(YscDelayQueueWebApplication.class, args);

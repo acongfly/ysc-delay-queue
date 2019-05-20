@@ -16,6 +16,7 @@ import org.springframework.util.StopWatch;
 import java.security.SecureRandom;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -87,6 +88,8 @@ public class YscRedisDelayQueue implements YscDelayQueue {
      * 等待时间
      */
     private long awaitTime;
+
+    private Thread leader = null;
 
     private ThreadLocal<String> lockParams = new ThreadLocal<>();
 
@@ -251,7 +254,7 @@ public class YscRedisDelayQueue implements YscDelayQueue {
                             if (RedisUtil.lock(redisTemplate, bucketThreadLocal.get(), lockParams.get(), EXPIRE_TIME)) {
                                 Long bucketElemSize = RedisUtil.zSize(redisTemplate, bucketName);
                                 //第一个
-                                Set<ZSetOperations.TypedTuple<String>> typedTuples = RedisUtil.zRangeWithScores(redisTemplate, bucketName, bucketElemSize - 1, bucketElemSize);
+                                Set<ZSetOperations.TypedTuple<String>> typedTuples = RedisUtil.zRangeWithScores(redisTemplate, bucketName, 0, 0);
                                 Iterator<ZSetOperations.TypedTuple<String>> iterator = typedTuples.iterator();
                                 while (iterator.hasNext()) {
                                     ZSetOperations.TypedTuple<String> next = iterator.next();
@@ -266,12 +269,11 @@ public class YscRedisDelayQueue implements YscDelayQueue {
                                          * TODO ack判断操作
                                          */
                                         if (add) {
-                                            RedisUtil.zRemoveRange(redisTemplate, bucketName, bucketElemSize - 1, bucketElemSize);
+                                            RedisUtil.zRemoveRange(redisTemplate, bucketName, 0, 0);
                                         }
                                     } else {
-                                        awaitTime = next.getScore().longValue() - System.nanoTime();
-//                                        available.awaitNanos(awaitTime);
-                                        Thread.sleep(awaitTime);
+//                                        awaitTime = next.getScore().longValue() - System.nanoTime();
+                                        //TODO sleep
                                     }
                                 }
                             }
@@ -284,6 +286,7 @@ public class YscRedisDelayQueue implements YscDelayQueue {
                         }
                     }
                 }
+                if (Objects.equals(delayQueueDetailInfoVO, null)) continue;
             }
         } catch (Exception e) {
             log.error("ysc-delay-queue exception", e);

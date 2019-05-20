@@ -36,13 +36,15 @@ public class RedisService {
     @PostConstruct
     public void init() {
         yscRedisDelayQueue = new YscRedisDelayQueue("testQueue", stringRedisTemplate);
-        ThreadFactory saveTreadFactory = new ThreadFactoryBuilder().setNameFormat("payment-submit-channel-%d").build();
-        addThreadPool = new ThreadPoolExecutor(1, 1,
-                0, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(), saveTreadFactory, new ThreadPoolExecutor.CallerRunsPolicy());
-        readThreadPool = new ThreadPoolExecutor(1, 1,
-                0, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(), saveTreadFactory, new ThreadPoolExecutor.CallerRunsPolicy());
+        ThreadFactory addFactory = new ThreadFactoryBuilder().setNameFormat("add-%d").build();
+        ThreadFactory readFactory = new ThreadFactoryBuilder().setNameFormat("read-%d").build();
+        addThreadPool = new ThreadPoolExecutor(2, 4,
+                0, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(), addFactory, new ThreadPoolExecutor.CallerRunsPolicy());
+        readThreadPool = new ThreadPoolExecutor(4, 8,
+                0, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(), readFactory, new ThreadPoolExecutor.CallerRunsPolicy());
     }
 
+    //    @Scheduled(fixedDelay = 120000)
     public void addRedisHash() {
         StopWatch stopWatch = new StopWatch();
         stopWatch.start();
@@ -56,43 +58,9 @@ public class RedisService {
         stopWatch.stop();
         log.info("执行总耗时{}", stopWatch.getTotalTimeSeconds());
 
-
-//        List<Thread> threads = new ArrayList<>();
-//        //十个线程
-//        for (int i = 0; i < 10; i++) {
-//            final int ii = i;
-//            Thread t = new Thread(() -> {
-//                try {
-//
-//                    long start = System.currentTimeMillis();
-//                    for (int j = 0; j < 100; j++) {
-//                        DelayQueueDetailInfoVO pop = yscRedisDelayQueue.pop();
-//                        log.info("thread name {},{},pop={}", Thread.currentThread(), ii, pop);
-//                        yscRedisDelayQueue.ack();
-//
-//                    }
-//                    long timeUsed = System.currentTimeMillis() - start;
-//                    log.info("10 threads consume 10000, use {} ms", timeUsed);
-//                } catch (Exception e) {
-//                    e.printStackTrace();
-//                }
-//
-//            });
-//            threads.add(t);
-//        }
-//
-//        for (Thread t : threads) {
-//            t.start();
-//        }
-
-//        try {
-//            Thread.sleep(600000);
-//        } catch (InterruptedException e) {
-//            e.printStackTrace();
-//        }
-
     }
 
+    //    @Scheduled(fixedDelay = 10000)
     public void read() {
         StopWatch stopWatch = new StopWatch();
         stopWatch.start();
@@ -120,9 +88,9 @@ public class RedisService {
             for (int i = 0; i < 100; i++) {
                 DelayQueueInfoVO delayQueueInfoVO = new DelayQueueInfoVO();
                 delayQueueInfoVO.setTopic("test" + task);
-                delayQueueInfoVO.setId(i + "_task_" + task);
-                delayQueueInfoVO.setDelayTime(6L);
-                delayQueueInfoVO.setTimeToRun(6L);
+                delayQueueInfoVO.setId(i + "_task_" + task + System.currentTimeMillis());
+                delayQueueInfoVO.setDelayTime(20L);
+                delayQueueInfoVO.setTimeToRun(0L);
                 delayQueueInfoVO.setBody("");
                 delayQueueInfoVO.setType(1 + "");
                 yscRedisDelayQueue.push(delayQueueInfoVO);
