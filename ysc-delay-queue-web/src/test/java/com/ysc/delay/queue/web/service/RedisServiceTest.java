@@ -19,5 +19,11 @@ public class RedisServiceTest {
         redisService.addRedisHash();
     }
 
+    @Test
+    public void readRedis() {
+        redisService.read();
+    }
+
+
 
 }

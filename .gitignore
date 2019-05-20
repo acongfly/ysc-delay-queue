@@ -82,7 +82,6 @@ ysc-delay-queue-core/target/classes/lua/
 ysc-delay-queue-core/target/generated-sources/
 ysc-delay-queue-core/target/maven-archiver/
 ysc-delay-queue-core/target/maven-status/
-ysc-delay-queue-web/src/main/java/com/ysc/delay/queue/web/controller/
 ysc-delay-queue-web/target/classes/META-INF/
 ysc-delay-queue-web/target/classes/application.properties
 ysc-delay-queue-web/target/generated-sources/
@@ -101,3 +100,4 @@ ysc-delay-queue-web/target/test-classes/META-INF/
 ysc-delay-queue-core/ysc-delay-queue-core.iml
 ysc-delay-queue-web/ysc-delay-queue-web.iml
 .idea
+ysc-delay-queue.iml
