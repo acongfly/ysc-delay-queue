@@ -62,6 +62,16 @@ public class RedisUtil {
     public static Set<String> keys(RedisTemplate<String, String> redisTemplate, String pattern) {
         return redisTemplate.keys(pattern);
     }
+
+    /**
+     * 是否存在key
+     *
+     * @param key
+     * @return
+     */
+    public static Boolean hasKey(RedisTemplate<String, String> redisTemplate, String key) {
+        return redisTemplate.hasKey(key);
+    }
     /**
      * ===============hash操作======================================================
      */
@@ -161,6 +171,16 @@ public class RedisUtil {
     }
 
     /**
+     * 批量
+     *
+     * @param key
+     * @param values
+     * @return
+     */
+    public static Long zAdd(RedisTemplate<String, String> redisTemplate, String key, Set<TypedTuple<String>> values) {
+        return redisTemplate.opsForZSet().add(key, values);
+    }
+    /**
      * description: zset获取集合的元素, 从小到大排序<p>
      * param: [redisTemplate, key, start 开始位置, end 结束位置, -1查询所有] <p>
      * return: java.util.Set<V> <p>
@@ -218,6 +238,17 @@ public class RedisUtil {
         return redisTemplate.opsForZSet().rangeWithScores(key, start, end);
     }
 
+    /**
+     * 根据指定的score值的范围来移除成员
+     *
+     * @param key
+     * @param min
+     * @param max
+     * @return
+     */
+    public static Long zRemoveRangeByScore(RedisTemplate<String, String> redisTemplate, String key, double min, double max) {
+        return redisTemplate.opsForZSet().removeRangeByScore(key, min, max);
+    }
     /**
      * 根据Score值查询集合元素, 从大到小排序
      *
