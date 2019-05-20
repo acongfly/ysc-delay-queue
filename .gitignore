@@ -100,3 +100,4 @@ ysc-delay-queue-web/target/test-classes/META-INF/
 ysc-delay-queue-core/ysc-delay-queue-core.iml
 ysc-delay-queue-web/ysc-delay-queue-web.iml
 .idea
+ysc-delay-queue.iml
