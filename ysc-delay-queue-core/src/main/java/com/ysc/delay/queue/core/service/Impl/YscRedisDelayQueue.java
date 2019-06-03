@@ -20,8 +20,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * @program: ysc-delay-queue
@@ -100,8 +98,8 @@ public class YscRedisDelayQueue implements YscDelayQueue {
      */
     private ThreadLocal<String> jobPoolKeyName = new ThreadLocal<>();
 
-    private final transient ReentrantLock lock = new ReentrantLock();
-    private final Condition available = lock.newCondition();
+//    private final transient ReentrantLock lock = new ReentrantLock();
+//    private final Condition available = lock.newCondition();
 
     /**
      * description: 组装延迟队列信息。bucket桶个数需要设置<p>
@@ -210,9 +208,7 @@ public class YscRedisDelayQueue implements YscDelayQueue {
         DelayQueueDetailInfoVO delayQueueDetailInfoVO = null;
         //ready job key
         readyQueueName = READY_JOB_PROFIX + queueName;
-//        final ReentrantLock reLock = this.lock;
         try {
-//            reLock.lock();
             for (; ; ) {
                 if (RedisUtil.zSize(redisTemplate, readyQueueName) > 0) {
                     lockParams.set(queueName + System.currentTimeMillis());
@@ -250,9 +246,8 @@ public class YscRedisDelayQueue implements YscDelayQueue {
                         bucketThreadLocal.set(LOCK_PREFIX + bucketName);
                         lockParams.set(bucketName + System.currentTimeMillis());
                         try {
-//                            Thread.sleep((bucket - bucketElemSize) * 1000);
                             if (RedisUtil.lock(redisTemplate, bucketThreadLocal.get(), lockParams.get(), EXPIRE_TIME)) {
-                                Long bucketElemSize = RedisUtil.zSize(redisTemplate, bucketName);
+//                                Long bucketElemSize = RedisUtil.zSize(redisTemplate, bucketName);
                                 //第一个
                                 Set<ZSetOperations.TypedTuple<String>> typedTuples = RedisUtil.zRangeWithScores(redisTemplate, bucketName, 0, 0);
                                 Iterator<ZSetOperations.TypedTuple<String>> iterator = typedTuples.iterator();
@@ -286,7 +281,11 @@ public class YscRedisDelayQueue implements YscDelayQueue {
                         }
                     }
                 }
-                if (Objects.equals(delayQueueDetailInfoVO, null)) continue;
+                if (Objects.equals(delayQueueDetailInfoVO, null)) {
+                    /**暂定休眠500，后面进行*/
+                    Thread.sleep(500);
+                    continue;
+                }
             }
         } catch (Exception e) {
             log.error("ysc-delay-queue exception", e);
