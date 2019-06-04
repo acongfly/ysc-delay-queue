@@ -24,6 +24,11 @@ public class RedisServiceTest {
         redisService.read();
     }
 
+    @Test
+    public void clear() {
+        redisService.clean();
+    }
+
 
 
 }

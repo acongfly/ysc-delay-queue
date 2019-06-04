@@ -6,7 +6,6 @@ import com.ysc.delay.queue.core.vo.DelayQueueDetailInfoVO;
 import com.ysc.delay.queue.core.vo.DelayQueueInfoVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StopWatch;
 
@@ -45,7 +44,7 @@ public class RedisService {
                 0, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(), readFactory, new ThreadPoolExecutor.CallerRunsPolicy());
     }
 
-    @Scheduled(fixedDelay = 120000)
+    //    @Scheduled(fixedDelay = 120000)
     public void addRedisHash() {
         StopWatch stopWatch = new StopWatch();
         stopWatch.start();
@@ -61,7 +60,7 @@ public class RedisService {
 
     }
 
-    @Scheduled(fixedDelay = 10000)
+    //    @Scheduled(fixedDelay = 10000)
     public void read() {
         StopWatch stopWatch = new StopWatch();
         stopWatch.start();
@@ -101,6 +100,16 @@ public class RedisService {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+
+    public void clean() {
+        try {
+            yscRedisDelayQueue.clean();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
     }
 
 

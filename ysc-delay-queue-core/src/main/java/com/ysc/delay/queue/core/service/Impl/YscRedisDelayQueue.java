@@ -98,9 +98,6 @@ public class YscRedisDelayQueue implements YscDelayQueue {
      */
     private ThreadLocal<String> jobPoolKeyName = new ThreadLocal<>();
 
-//    private final transient ReentrantLock lock = new ReentrantLock();
-//    private final Condition available = lock.newCondition();
-
     /**
      * description: 组装延迟队列信息。bucket桶个数需要设置<p>
      * param: [delayQueueInfoVO, bucket] <p>
@@ -228,7 +225,7 @@ public class YscRedisDelayQueue implements YscDelayQueue {
                                 //TODO ack 去除hash中值
                                 jobPoolKeyName.set(key);
 
-                                if (true) {      //TODO 相关状态判断
+                                if (true) {      //TODO 相关状态判断，如果失败，传输到失败队列
                                     //移除ready job 第一个
                                     RedisUtil.zRemoveRange(redisTemplate, readyQueueName, 0, 0);
                                 }
@@ -333,7 +330,9 @@ public class YscRedisDelayQueue implements YscDelayQueue {
 //            String bucketName = BUCKET_NAME_PREFIX + queueName + i;
 //            RedisUtil.zRemoveRange(redisTemplate, bucketName, 0, -1);
 //        }
-        RedisUtil.expire(redisTemplate, readyQueueName, 0, TimeUnit.NANOSECONDS);
+        if (readyQueueName != null) {
+            RedisUtil.expire(redisTemplate, readyQueueName, 0, TimeUnit.NANOSECONDS);
+        }
         for (int i = 0; i < bucket; i++) {
             String bucketName = BUCKET_NAME_PREFIX + queueName + i;
             RedisUtil.expire(redisTemplate, bucketName, 0, TimeUnit.NANOSECONDS);
